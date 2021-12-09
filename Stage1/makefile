@@ -1,11 +1,5 @@
-output: main.o
-	g++ main.o -o output
-
-main.o: main.cpp
-	g++ -c main.cpp
+output:
+	g++ client.cpp -pthread -o client	
 
 clean:
-	rm *.o output
-
-start:
-	./output
+	rm *.o output *.out clean
