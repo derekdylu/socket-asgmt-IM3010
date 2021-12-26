@@ -39,6 +39,8 @@ User users[20] = {};
 int usrCnt = 0;
 string ip;
 
+int threadsCnt = 0;
+
 int main(int argc, char *argv[])
 {
     int socket_desc, new_socket, c, *new_sock;
@@ -84,15 +86,26 @@ int main(int argc, char *argv[])
         new_sock = (int *)malloc(1);
         *new_sock = new_socket;
 
-        if (pthread_create(&sniffer_thread, NULL, connection_handler, (void *)new_sock) < 0)
+        if (threadsCnt < 3)
         {
-            perror("could not create thread");
-            return 1;
+            int ptc = pthread_create(&sniffer_thread, NULL, connection_handler, (void *)new_sock);
+            if (ptc < 0)
+            {
+                perror("could not create thread");
+                return 1;
+            }
+            else
+            {
+                threadsCnt++;
+            }
+            cout << threadsCnt << endl;
         }
-
-        //Now join the thread , so that we dont terminate before the thread
-        //pthread_join(sniffer_thread, NULL); //
-        puts("Handler assigned");
+        else
+        {
+            string waitingMessage = "Limit 3 threads at the time.";
+            write(*(int *)new_sock, waitingMessage.c_str(), sizeof(waitingMessage));
+            puts("Limit 3 threads at the time.");
+        }
     }
 
     if (new_socket < 0)
@@ -113,8 +126,7 @@ void *connection_handler(void *socket_desc)
     string message;
 
     //Send some messages to the client
-    //message = "Greetings! I am your connection handler\n";
-    //write(sock, message, strlen(message));
+    puts("Connection handler assigned.");
 
     //Receive a message from client
     while ((read_size = recv(sock, client_message, 2000, 0)) > 0)
@@ -172,6 +184,7 @@ void *connection_handler(void *socket_desc)
     {
         puts("Client disconnected");
         fflush(stdout);
+        threadsCnt--;
     }
     else if (read_size == -1)
     {
@@ -233,6 +246,7 @@ void login(int sock, char *client_message)
         return;
     }
 
+    /*
     if (usrCnt > 3)
     {
         puts("limit 3 users at the time");
@@ -240,6 +254,7 @@ void login(int sock, char *client_message)
         write(sock, message.c_str(), sizeof(message));
         return;
     }
+    */
 
     users[userIdx].login = 1; // set login to 1
     users[userIdx].port = stoi(port);
@@ -274,6 +289,7 @@ void trans(int sock, char *client_message)
         return;
     }
 
+    puts("pass");
     users[aIdx].balance -= stoi(samount);
     users[bIdx].balance += stoi(samount);
 }
@@ -392,7 +408,7 @@ void listUser(struct User *p, int sock)
     message.append("\n");
     // message.append("<ServerPublicKey>\n");
     message.append(to_string(getOnlineCount(users, listing)));
-    message.append("\n");
+    // message.append("\n");
     // message.append(listing);
     // message.append("\n");
 
@@ -400,10 +416,10 @@ void listUser(struct User *p, int sock)
     {
         if (p[i].login == 1)
         {
+            message.append("\n");
             message.append(p[i].username);
             message.append("#127.0.0.1#");
             message.append(to_string(p[i].port));
-            message.append("\n");
         }
     }
 
