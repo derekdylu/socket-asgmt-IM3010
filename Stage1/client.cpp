@@ -169,6 +169,25 @@ int main(int argc, char *argv[])
             close(sd);
             break;
         }
+        else if (command == 6) // debug
+        {
+            printf("[Enter Message (limit 100)] > ");
+            char message[100];
+            scanf("%s", message);
+
+            send(sd, message, sizeof(message), 0);
+            printf("Wait for server to response...\n");
+
+            if (recv(sd, server_reply, MAX_LENGTH, 0) < 0)
+            {
+                puts("Receiving failed.\n");
+            }
+            else
+            {
+                puts(server_reply);
+            }
+            bzero(server_reply, MAX_LENGTH);
+        }
         else
         {
             printf("Try again!");
@@ -225,6 +244,7 @@ void sending()
     string payee_ip = list.substr(n + payee.length() + 1, pound2 - (n + payee.length() + 1));
     string payee_port = list.substr(pound2 + 1, 4);
     string amount;
+    // cout << "payee_port: " << payee_port << endl;
     printf("[Transaction amount] > ");
     cin >> amount;
 
@@ -271,5 +291,6 @@ void menu()
     printf("3 -> Show My Balance and User List\n");
     printf("4 -> Make a Transaction\n");
     printf("5 -> Exit\n");
+    printf("6 -> Debug\n");
     printf("=========================\n\n");
 }
