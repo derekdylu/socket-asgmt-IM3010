@@ -38,7 +38,7 @@ int main(int argc, char *argv[])
 
     if (connect(sd, (struct sockaddr *)&server, sizeof(server)) < 0)
     {
-        printf("Connection error.\n");
+        printf("Main program connection error.\n");
         return 1;
     }
     else
@@ -49,7 +49,7 @@ int main(int argc, char *argv[])
     int sd_t = socket(AF_INET, SOCK_STREAM, 0);
     if (sd_t == -1)
     {
-        printf("Couldn't create socket.\n");
+        printf("Couldnt create socket.\n");
     }
 
     printf("[Login port number] > ");
@@ -59,16 +59,22 @@ int main(int argc, char *argv[])
     struct sockaddr_in client_;
     socklen_t addrlen = sizeof(client_);
     client_.sin_addr.s_addr = INADDR_ANY;
-    client_.sin_family = PF_INET;
+    client_.sin_family = AF_INET;
     client_.sin_port = htons(atoi((char *)port));
-    bind(sd_t, (struct sockaddr *)&client_, sizeof(client_));
+
+    if (bind(sd_t, (struct sockaddr *)&client_, sizeof(client_)) < 0)
+    {
+        cout << "Client bind failed: " << strerror(errno) << endl;
+        return 1;
+    };
+    cout << "Client bind done" << endl;
     listen(sd_t, 5);
 
     // multi-thread receiving
     pthread_t tid;
-    pthread_attr_t attr;
-    pthread_attr_init(&attr);
-    pthread_create(&tid, &attr, &receive_thread, &sd_t);
+    // pthread_attr_t attr;
+    // pthread_attr_init(&attr);
+    pthread_create(&tid, NULL, receive_thread, &sd_t);
 
     string list; // usernames
     int command; // command
@@ -143,14 +149,7 @@ int main(int argc, char *argv[])
         else if (command == 4) // transaction
         {
             sending();
-            if (recv(sd, server_reply, MAX_LENGTH, 0) < 0)
-            {
-                puts("Receiving failed.\n");
-            }
-            else
-            {
-                puts(server_reply);
-            }
+            // recv detection inside sending function
             bzero(server_reply, MAX_LENGTH);
         }
         else if (command == 5) // exit
@@ -220,13 +219,22 @@ void receiving(int server_fd)
     send(sd, clientmsg, sizeof(clientmsg), 0);
     bzero(clientmsg, MAX_LENGTH);
     close(client_sd);
+
+    return;
 }
 
 void sending()
 {
     bzero(server_reply, MAX_LENGTH);
     send(sd, "List", sizeof("List"), 0);
-    recv(sd, server_reply, MAX_LENGTH, 0);
+    if (recv(sd, server_reply, MAX_LENGTH, 0) < 0)
+    {
+        puts("Receiving failed.\n");
+    }
+    else
+    {
+        puts(server_reply);
+    }
 
     string list;
     list = server_reply;
@@ -242,9 +250,11 @@ void sending()
     int pound2 = list.find("#", n + payee.length() + 1);
 
     string payee_ip = list.substr(n + payee.length() + 1, pound2 - (n + payee.length() + 1));
+    cout << "payee ip = " << payee_ip << endl;
     string payee_port = list.substr(pound2 + 1, 4);
+    // payee_port.pop_back();
+    cout << "payee port = " << payee_port << endl;
     string amount;
-    // cout << "payee_port: " << payee_port << endl;
     printf("[Transaction amount] > ");
     cin >> amount;
 
@@ -253,6 +263,7 @@ void sending()
     msg.append(amount);
     msg.append("#");
     msg.append(payee);
+
     char *payee_port_ = const_cast<char *>(payee_port.c_str());
 
     int client_sd;
@@ -265,6 +276,7 @@ void sending()
     }
 
     struct sockaddr_in client_send;
+    // client_send.sin_addr.s_addr = inet_addr(payee_ip.c_str());
     client_send.sin_addr.s_addr = INADDR_ANY;
     client_send.sin_family = AF_INET;
     client_send.sin_port = htons(stoi(payee_port, nullptr, 10));
@@ -281,6 +293,8 @@ void sending()
     send(client_sd, msg.c_str(), sizeof(msg), 0);
 
     close(client_sd);
+
+    return;
 }
 
 void menu()

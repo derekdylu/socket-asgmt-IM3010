@@ -34,3 +34,5 @@ output
 
 # VSCode
 .vscode
+
+.DS_Store
