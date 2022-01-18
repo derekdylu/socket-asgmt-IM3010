@@ -11,13 +11,26 @@
 #include <string.h>
 #include <string>
 
+#include <math.h> //ENCR: for encryption math
+
 using namespace std;
+
+#define MAX_LENGTH 2000
 
 void *connection_handler(void *);
 void regist(int sock, char *cmd);
 void login(int sock, char *client_message);
 void trans(int sock, char *client_message);
 void debug(int sock, char *client_message);
+
+//ENCR: variables for encryption
+int n, t, flag;
+long int e[500], d[500], j; // server global
+
+void encryption_key(int x, int y);         //ENCR: generate encryption key
+int prime(long int);                       //ENCR: function to check for prime number
+long int cd(long int);                     //ENCR: child function of encryption_key()
+string decrypt(char *client_encr_message); //ENCR: function to decrypt
 
 typedef struct User
 {
@@ -46,6 +59,14 @@ int main(int argc, char *argv[])
     int socket_desc, new_socket, c, *new_sock;
     struct sockaddr_in server, client;
     char *message;
+
+    // ENCR: TODO: variables
+    int x = 17;
+    int y = 31;
+
+    //ENCR: create public key
+    encryption_key(x, y);
+    cout << "Public key generated: " << n << "-" << e[0] << endl;
 
     //Create socket
     socket_desc = socket(AF_INET, SOCK_STREAM, 0);
@@ -122,15 +143,31 @@ void *connection_handler(void *socket_desc)
     //Get the socket descriptor
     int sock = *(int *)socket_desc;
     int read_size;
-    char client_message[2000];
+    char client_message[MAX_LENGTH];
     string message;
+    bool encr = false;
 
     //Send some messages to the client
     puts("Connection handler assigned.");
 
     //Receive a message from client
-    while ((read_size = recv(sock, client_message, 2000, 0)) > 0)
+    while ((read_size = recv(sock, client_message, MAX_LENGTH, 0)) > 0)
     {
+        if (encr)
+        {
+            //ENCR:
+            cout << "Received " << client_message << endl;
+            string de_msg = decrypt(client_message);
+            cout << endl
+                 << "decrypted message: " << de_msg << endl;
+
+            char _de_msg[de_msg.length()];
+            strcpy(_de_msg, de_msg.c_str());
+
+            trans(sock, _de_msg);
+            encr = false;
+            continue;
+        }
         if (strcmp(client_message, "Exit") == 0)
         {
             message = "Bye\n";
@@ -146,6 +183,14 @@ void *connection_handler(void *socket_desc)
         else if (strstr(client_message, "REGISTER#") != NULL)
         {
             regist(sock, client_message);
+            continue;
+        }
+        else if (strcmp(client_message, "Encrypted") == 0)
+        {
+            puts("Username not found");
+            message = "ENCRYPTION_REQ_ACCEPT\n";
+            write(sock, message.c_str(), sizeof(message));
+            encr = true;
             continue;
         }
         else
@@ -165,7 +210,8 @@ void *connection_handler(void *socket_desc)
 
             if (hashtag == 0)
             {
-                message = "bad input";
+                puts("Bad input");
+                message = "Bad input";
                 write(sock, message.c_str(), sizeof(message));
             }
             else if (hashtag == 1)
@@ -226,7 +272,7 @@ void regist(int sock, char *client_message)
 
 void login(int sock, char *client_message)
 {
-    char callback[2000] = "Login > ";
+    char callback[MAX_LENGTH] = "Login > ";
     char username[100];
     char ports[100];
 
@@ -264,7 +310,7 @@ void login(int sock, char *client_message)
 
 void trans(int sock, char *client_message)
 {
-    char callback[2000] = "Transaction > from:";
+    char callback[MAX_LENGTH] = "Transaction > from:";
     char usernameA[100];
     char usernameB[100];
     char amount[100];
@@ -273,7 +319,7 @@ void trans(int sock, char *client_message)
     strcat(callback, usernameA);
     strcat(callback, " to: ");
     strcat(callback, usernameB);
-    strcat(callback, " amunt= ");
+    strcat(callback, " amount= ");
     strcat(callback, amount);
     puts(callback);
     string message;
@@ -289,7 +335,7 @@ void trans(int sock, char *client_message)
         return;
     }
 
-    puts("pass");
+    puts("server recorded transaction!");
     users[aIdx].balance -= stoi(samount);
     users[bIdx].balance += stoi(samount);
 }
@@ -406,7 +452,10 @@ void listUser(struct User *p, int sock)
 
     message = to_string(getBalance(users, sock));
     message.append("\n");
-    // message.append("<ServerPublicKey>\n");
+    message.append(to_string(n));
+    message.append("-");
+    message.append(to_string(e[0]));
+    message.append("\n"); // DONE: server public key
     message.append(to_string(getOnlineCount(users, listing)));
     // message.append("\n");
     // message.append(listing);
@@ -425,7 +474,138 @@ void listUser(struct User *p, int sock)
 
     cout << message << endl;
 
-    write(sock, message.c_str(), 2000);
+    write(sock, message.c_str(), MAX_LENGTH);
 }
 
+//TODO:
 int duplicatePort(struct User *p, int port) {}
+
+// ----------------------------------------------------------------
+// ENCR: functions belows are for encryption
+
+//function to generate encryption key
+void encryption_key(int x, int y)
+{
+    n = x * y;
+    t = (x - 1) * (y - 1);
+
+    int k = 0;
+    int flag;
+    for (int i = 2; i < t; i++)
+    {
+        if (t % i == 0)
+            continue;
+        flag = prime(i);
+        if (flag == 1 && i != x && i != y)
+        {
+            e[k] = i;
+            flag = cd(e[k]);
+            if (flag > 0)
+            {
+                d[k] = flag;
+                k++;
+            }
+            if (k == 99)
+                break;
+        }
+    }
+}
+
+int prime(long int pr)
+{
+    int i;
+    j = sqrt(pr);
+    for (i = 2; i <= j; i++)
+    {
+        if (pr % i == 0)
+            return 0;
+    }
+    return 1;
+}
+
+long int cd(long int a)
+{
+    long int k = 1;
+    while (1)
+    {
+        k = k + t;
+        if (k % a == 0)
+            return (k / a);
+    }
+}
+
+// TODO: temp -> encrypted message code input from client
+
+string decrypt(char *client_encr_message)
+{
+    int len = 0;
+    long int pt, ct, key = d[0], k;
+
+    cout << "client message: " << client_encr_message << endl;
+
+    int temp[MAX_LENGTH];
+    int temp_idx = 0;
+    string tempss = "";
+    for (int i = 0; i <= strlen(client_encr_message); i++)
+    {
+        if (client_encr_message[i] == '-' || client_encr_message[i] == '\0')
+        {
+            // cout << tempss << endl;
+            temp[temp_idx] = stoi(tempss);
+            tempss = "";
+            temp_idx++;
+            len++;
+        }
+        else
+        {
+            tempss += client_encr_message[i];
+        }
+    }
+
+    char de[MAX_LENGTH]; // displaying decrypted message
+    string decrypted = "";
+
+    int i = 0;
+    while (i < len)
+    {
+        ct = temp[i];
+        k = 1;
+        for (j = 0; j < key; j++)
+        {
+            k = k * ct;
+            k = k % n;
+        }
+        pt = k + 96;
+        de[i] = pt;
+        decrypted += de[i];
+        i++;
+    }
+
+    int h1 = decrypted.find("~", 0);
+    int h2 = decrypted.find("~", h1 + 1);
+
+    string payer = decrypted.substr(0, h1);
+    string amount = decrypted.substr(h1 + 1, h2 - h1 - 1);
+    string payee = decrypted.substr(h2 + 1, len - h2 - 1);
+    string real_amount;
+
+    // amount translate
+    for (int a = 0; a < amount.length(); a++)
+    {
+        int ra = amount.c_str()[a];
+        ra -= 97;
+        real_amount += to_string(ra);
+    }
+
+    cout << "decryption details" << endl
+         << "payer: " << payer << " amount: " << amount << " real_amount: " << real_amount << " payee: " << payee << endl;
+
+    string re_de = "";
+    re_de.append(payer);
+    re_de.append("#");
+    re_de.append(real_amount);
+    re_de.append("#");
+    re_de.append(payee);
+
+    return re_de;
+}
