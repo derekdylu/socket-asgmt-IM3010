@@ -28,41 +28,45 @@ After the server is started and ready, type `./client <server IP address> <serve
 
 Then the server will wait for clients to connect, some commands and status changes will show on the terminal.
 
-### makefile code
+## makefile code
 ```makefile
 output:
 	g++ server.cpp -pthread -o server
 	g++ client.cpp -pthread -o client
 ```
 
-### Encryption Approach
-1: Creating Keys
+## Encryption Approach
+### 1: Creating Keys
 
-Select two large prime numbers x and y
-Compute n = x * y
-where n is the modulus of private and the public key
-Calculate totient function, ø (n) = (x − 1)(y − 1)
-Choose an integer e such that e is coprime to ø(n) and 1 < e < ø(n).
-e is the public key exponent used for encryption
-Now choose  d, so that d · e mod ø (n) = 1, i.e., >code>d is the multiplicative inverse of e in mod ø (n)
-2: Encrypting Message
+Select two large prime numbers x and y, and compute `n = x * y`
+
+Then, n is the modulus of private and the public key
+
+Calculate totient function, `ø(n) = (x − 1)(y − 1)`
+
+Choose an integer e such that e is coprime to ø(n) and 1 < e < ø(n). And e is the public key exponent used for encryption
+
+Finally choose  d, so that `d * e mod ø(n) = 1`
+
+### 2: Encrypting Message
 
 Messages are encrypted using the Public key generated and is known to all.
 
-The public key is the function of both e and n i.e. {e,n}.
+The public key is the function of both e and n.
 
 If M is the message(plain text), then ciphertext
 
-C = M ^ n( mod n )
-3: Decrypting Message
+`C = M ^ n( mod n )`
 
-The private key is the function of both d and n i.e {d,n}.
+### 3: Decrypting Message
+
+The private key is the function of both d and n.
 
 If C is the encrypted ciphertext, then the plain decrypted text M is
 
-M = C ^ d ( mod n )
-You might be wondering how to write a source code for this program.
+`M = C ^ d ( mod n )`
 
 ### Reference
-- https://www.thegeekstuff.com/2011/12/c-socket-programming/
-- https://www.binarytides.com/socket-programming-c-linux-tutorial/
+- [1](https://www.thegeekstuff.com/2011/12/c-socket-programming/)
+- [2](https://www.binarytides.com/socket-programming-c-linux-tutorial/)
+- [3](http://www.trytoprogram.com/cpp-examples/cplusplus-program-encrypt-decrypt-string/#rsa)
